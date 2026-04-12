@@ -1,3 +1,5 @@
+[🇰🇷 한국어](ko/domain-model.md)
+
 # Domain Model
 
 ## Entity Overview

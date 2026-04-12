@@ -1,3 +1,5 @@
+[🇰🇷 한국어](ko/frontend.md)
+
 # Frontend Tech Stack
 
 ## Core Framework

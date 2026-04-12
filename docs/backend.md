@@ -1,3 +1,5 @@
+[🇰🇷 한국어](ko/backend.md)
+
 # Backend Tech Stack
 
 ## Core Framework

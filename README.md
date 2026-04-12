@@ -1,3 +1,5 @@
+[🇰🇷 한국어](README.ko.md)
+
 # Bias Song Finder
 
 > K-pop song search app using a 20-questions-style quiz to find that half-remembered song.

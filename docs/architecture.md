@@ -1,3 +1,5 @@
+[🇰🇷 한국어](ko/architecture.md)
+
 # Architecture
 
 ## System Overview
