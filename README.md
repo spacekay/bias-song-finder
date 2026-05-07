@@ -65,6 +65,7 @@ graph TD
 - **Hexagonal Architecture**: Each module cleanly separates the HTTP layer from business logic
 - **Multi-Tenancy**: Each artist group is fully isolated at the database level with multi-layer tenant resolution
 - **Session-based game flow**: No login required. A lightweight session mechanism tracks quiz state without user accounts
+- **Similarity-based fallback**: When the quiz can't pin a single song, the backend recommends the closest matches via a weighted similarity engine
 - **Edge deployment**: Frontend runs on Cloudflare Workers for global low-latency delivery
 
 ---

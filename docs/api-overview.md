@@ -26,13 +26,21 @@ The quiz follows a session-based conversational pattern:
 1. **Session creation** — initializes the candidate pool from the artist's full catalog
 2. **Question retrieval** — backend dynamically selects the next most-differentiating question
 3. **Answer submission** — filters the candidate pool based on the user's answer
-4. **Result** — when candidates are narrowed sufficiently, the quiz concludes with the matched song(s)
+4. **Result** — the quiz always lands on a result page: a matched song when the pool converges, and the closest songs (from a similarity engine) when no candidates remain or all questions have been exhausted
 
 "Skip" (don't know) is always available — it does not filter candidates, allowing the quiz to proceed even with partial knowledge.
+
+### Skipped Question Enrichment
+
+When the quiz finally lands a song, any questions the user skipped are filled in with the matched song's actual values in the result payload, so the response can show the user "what the answers to your skipped questions would have been."
 
 ### Dynamic Question Strategy
 
 The question selection algorithm adapts its strategy based on the current candidate pool size, transitioning from broad filtering questions to more targeted differentiation as the pool shrinks. When candidates are few enough, the user can directly select from the remaining options.
+
+### Similarity Fallback
+
+To avoid dead ends, the answer and result responses share the same shape: a primary outcome plus a small set of close-match recommendations from a weighted similarity engine. The frontend can render no-match, all-questions-exhausted, and matched-song outcomes through one consistent path.
 
 ---
 

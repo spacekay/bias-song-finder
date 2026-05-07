@@ -8,7 +8,7 @@
 |-----------|------|
 | Kotlin | Primary language |
 | Java 21 | Toolchain |
-| Spring Boot 3.x | Web, Data JPA, Security, Data Redis, Mustache (admin) |
+| Spring Boot 3.4 | Web, Data JPA, Security, Data Redis, Mustache (admin) |
 | Gradle (Kotlin DSL) | Build system |
 
 ---
@@ -39,7 +39,7 @@ Migrations are organized separately for shared and tenant-specific schemas. Tena
 | Spring Data Redis | Session data storage with TTL |
 | Redisson | Distributed rate limiting |
 
-Session state lives entirely in Redis — the backend holds no in-memory state and is horizontally scalable.
+Session state lives entirely in Redis — the backend holds no in-memory state and is horizontally scalable. Redisson backs distributed rate limiting at the API edge so per-session abuse can be throttled across instances.
 
 ---
 
@@ -56,6 +56,12 @@ Session state lives entirely in Redis — the backend holds no in-memory state a
 
 ---
 
+## Song Similarity Engine
+
+A weighted similarity engine ranks songs across multiple attribute categories to surface a list of close matches. It is invoked whenever the quiz cannot land on a single song — when the candidate pool is empty, when all available questions have been exhausted, or when the user reaches the no-match path — so the response always carries a meaningful set of suggestions instead of an error.
+
+---
+
 ## Testing
 
 | Technology | Role |
@@ -68,7 +74,7 @@ Session state lives entirely in Redis — the backend holds no in-memory state a
 
 ## Admin UI
 
-The `:admin` module serves a server-rendered management interface (Mustache templates, local only) for managing all domain data including bulk CSV import.
+The `:admin` module serves a server-rendered management interface (Mustache templates, local only) for managing all domain data including bulk CSV import. Spotify and YouTube integrations are wired into the admin flow to streamline content curation.
 
 ---
 

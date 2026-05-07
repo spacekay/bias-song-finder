@@ -61,6 +61,10 @@ The flow follows a simple cycle:
 
 All session state is stored externally (not in-memory), making the backend horizontally scalable.
 
+### Graceful Fallback
+
+The session never ends empty-handed. If the candidate pool fails to converge on a single song — whether because no candidates remain or all available questions have been asked — the backend returns the closest songs from a weighted similarity engine instead of an error, and the frontend renders them through the same result UI.
+
 ---
 
 ## Deployment
@@ -72,4 +76,5 @@ All session state is stored externally (not in-memory), making the backend horiz
 
 ### Observability (Local)
 - **Loki + Promtail + Grafana** — structured session log ingestion and dashboard
+- **Prometheus + Spring Boot Actuator** — application metrics scraped into Grafana
 - Grafana dashboards track: session funnels, answer distributions, result satisfaction, per-session journey
