@@ -72,7 +72,11 @@ All many-to-many relationships use explicit join entities with composite keys.
 ## Quiz Flow Entities
 
 - **Question** — A quiz question with type classification and a target song attribute for filtering. Questions can be chained in sequence and support multiple answer formats
-- **Result** — Quiz result tied to a session, with optional user satisfaction feedback
+- **Result** — Persisted quiz outcome tied to a session, with optional user satisfaction feedback. A partial unique index permits one non-deleted result per session; result creation is serialized within a database transaction
+
+## Session State and Durable Results
+
+Active quiz progress is versioned data in Redis with a TTL, separate from the relational result model. PostgreSQL retains the result and a shared session-to-tenant mapping so result links remain routable after Redis expiry. Recommendations can be recomputed from the persisted song; expired answer history is not reconstructed.
 
 ---
 

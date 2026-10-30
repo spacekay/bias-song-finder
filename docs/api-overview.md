@@ -4,62 +4,77 @@
 
 ## Design Philosophy
 
-The API is designed around a **stateless session flow** — no user login required. A session key acts as both the user identifier and the quiz state pointer.
+The quiz requires no user account. A session key identifies progress stored in Redis, while PostgreSQL retains results and session-to-tenant mappings for sharing after session expiry. Application instances do not keep authoritative quiz state in memory.
 
-All quiz state is stored externally, keyed by session key. The backend itself holds no in-memory state, making it horizontally scalable.
+Browser requests pass through same-origin Next.js API routes. Those routes attach the backend shared secret on the server; the browser never receives it.
 
 ---
 
 ## Session Lifecycle
 
-- A unique session key is generated on session creation
-- The session key is used for all subsequent requests during the quiz
+- Session creation initializes the candidate pool for the selected artist
+- Subsequent quiz requests carry the session key
 - Sessions have a configurable TTL with explicit extension support
-- Expired session requests return an appropriate error status
+- Ordinary updates preserve the remaining TTL rather than renewing it
+- Expired quiz state returns `410 Gone`; persisted result retrieval remains available
+
+### Concurrent Updates
+
+Session mutations atomically compare a version before saving. A stale update or repeated answer returns `409 Conflict` with `SESSION_CONFLICT`, preventing one request from overwriting another answer. A caller must refresh current state before submitting a new answer rather than blindly retrying the old mutation.
 
 ---
 
 ## Quiz Flow
 
-The quiz follows a session-based conversational pattern:
+1. **Create a session** — initialize the artist's candidate pool
+2. **Retrieve a question** — select a question that differentiates the remaining songs
+3. **Submit an answer** — filter candidates and return the next outcome
+4. **Finish or recover** — show a match, offer related songs, or reopen the last question after exhaustion
 
-1. **Session creation** — initializes the candidate pool from the artist's full catalog
-2. **Question retrieval** — backend dynamically selects the next most-differentiating question
-3. **Answer submission** — filters the candidate pool based on the user's answer
-4. **Result** — the quiz always lands on a result page: a matched song when the pool converges, and the closest songs (from a similarity engine) when no candidates remain or all questions have been exhausted
-
-"Skip" (don't know) is always available — it does not filter candidates, allowing the quiz to proceed even with partial knowledge.
-
-### Skipped Question Enrichment
-
-When the quiz finally lands a song, any questions the user skipped are filled in with the matched song's actual values in the result payload, so the response can show the user "what the answers to your skipped questions would have been."
+Most questions support “don't know” without filtering candidates. Keyword questions use a “None of these” option instead of a separate skip button; this also advances without filtering.
 
 ### Dynamic Question Strategy
 
-The question selection algorithm adapts its strategy based on the current candidate pool size, transitioning from broad filtering questions to more targeted differentiation as the pool shrinks. When candidates are few enough, the user can directly select from the remaining options.
+The engine moves from broad filtering to targeted differentiation as the pool shrinks. Lyric hints and direct song selection help resolve small candidate pools. Album options distinguish original releases from repackages, while member and solo-song rules avoid questions that cannot meaningfully differentiate candidates.
 
-### Similarity Fallback
+### Answer Outcomes
 
-To avoid dead ends, the answer and result responses share the same shape: a primary outcome plus a small set of close-match recommendations from a weighted similarity engine. The frontend can render no-match, all-questions-exhausted, and matched-song outcomes through one consistent path.
+| Status | Behavior |
+|--------|----------|
+| `CONTINUE` | Continue the question loop |
+| `RESULT` | Return a matched song and related recommendations inside `finalResult` |
+| `NO_MATCH` | Return suggestions in the answer response's `similarSongs` field |
+| `ALL_QUESTIONS_EXHAUSTED` | Return suggestions and preserve a recoverable last question |
+
+Answer responses and persisted result responses have distinct contracts. Next-question retrieval can still return an error for empty or exhausted flows; the recoverable outcomes above describe answer submission.
+
+### Reopening the Last Question
+
+After exhaustion, `POST /api/v1/sessions/reopen-last-question` cancels the last answer and returns that question for another selection. The candidate pool and derived filtering state are restored to the corresponding state before the answer. If no question can be reopened, the API returns a session conflict. The user can alternatively continue to a no-match result.
+
+### Result Enrichment and Sharing
+
+When a song is matched, supported skipped questions receive that song's actual values in the result payload. The result can explain answers the user did not know.
+
+`GET /api/v1/results/{sessionKey}` retrieves the persisted outcome even after Redis expiry. Recommendations can be recomputed from the saved song; answer history is available only while the session survives.
 
 ---
 
-## Response Format
+## Result Consistency
+
+Result creation is serialized by session within a database transaction. A partial unique index allows only one active result per session. Repeated or concurrent final-result and no-match creation requests keep the first active result, avoiding duplicate song associations and creation notifications.
+
+---
+
+## Response and Security Boundaries
 
 - Success responses return data directly with standard HTTP success codes
-- Error responses return a structured error object with an error code and message
-
----
-
-## Security Model
-
-- Frontend authenticates with the backend to obtain a short-lived JWT
-- The JWT is attached to all requests from the frontend
-- Quiz session endpoints use the session key as sufficient authentication
-- Distributed rate limiting prevents abuse on a per-session basis
-
----
+- Errors return a structured code and message, including conflicts and expiry
+- Worker API routes attach the shared secret to backend requests
+- Quiz and shared-result endpoints use session keys without user login
+- JWT support carries authenticated context and tenant claims where used; it is not a prerequisite for the browser quiz flow
+- Distributed rate limiting constrains per-session requests
 
 ## Multi-Tenancy
 
-Each artist group is a separate tenant with its own database schema. Tenant routing is resolved transparently from the session context — from the API consumer's perspective, all endpoints look the same.
+Each artist has an isolated database schema. Tenant resolution uses authenticated context, active session data, or a persistent session-to-tenant mapping for expired shared links. Resolved identifiers are validated before connection routing, and connections are reset before reuse.

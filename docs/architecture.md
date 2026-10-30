@@ -34,9 +34,9 @@ Both `:api` and `:admin` depend on `:core`.
 
 ---
 
-## Hexagonal Architecture
+## Application Boundaries
 
-Each module follows hexagonal (ports and adapters) architecture, cleanly separating the HTTP layer from domain logic and cross-cutting infrastructure concerns.
+HTTP adapters delegate to domain services, with shared persistence and infrastructure in `:core`. Within the quiz engine, question selection policies, option builders, answer processing, state transitions, and result assembly have separate responsibilities. This makes individual rules easier to test without putting the entire flow in one service.
 
 ---
 
@@ -45,8 +45,9 @@ Each module follows hexagonal (ports and adapters) architecture, cleanly separat
 Each artist group (e.g., SHINee, f(x)) gets its own isolated PostgreSQL schema containing all domain tables, while shared metadata lives in a common schema.
 
 Key aspects:
-- **Multi-layer tenant resolution** — multiple fallback strategies ensure tenant context is always available, including for shared links after session expiry
-- **Connection-level schema routing** — tenant context is applied at the database connection level with proper cleanup to prevent cross-tenant data leakage
+- **Multi-layer tenant resolution** — resolves tenant context for active sessions and persisted shared links after session expiry
+- **Validated schema routing** — tenant identifiers are validated before SQL construction; tenant connections do not fall through to shared domain tables
+- **Connection cleanup** — the schema is reset before connection reuse; connections that fail setup or cleanup are discarded
 
 ---
 
@@ -63,7 +64,13 @@ All session state is stored externally (not in-memory), making the backend horiz
 
 ### Graceful Fallback
 
-The session never ends empty-handed. If the candidate pool fails to converge on a single song — whether because no candidates remain or all available questions have been asked — the backend returns the closest songs from a weighted similarity engine instead of an error, and the frontend renders them through the same result UI.
+Answer submission returns explicit outcomes for a match, no match, or exhausted questions, with similarity recommendations where applicable. When questions run out, users can reopen the last question or continue to a no-match result. Next-question retrieval retains its error responses for empty or exhausted flows.
+
+### State Consistency
+
+Versioned Redis updates compare the expected session version atomically while preserving its remaining TTL. Stale updates and repeated answers return a conflict instead of overwriting newer progress. Result creation uses a database transaction lock and a uniqueness constraint so concurrent or repeated requests retain one active result per session.
+
+See [Engineering Decisions](engineering-decisions.md) for the problems and tradeoffs behind these boundaries.
 
 ---
 

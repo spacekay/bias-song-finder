@@ -8,7 +8,7 @@
 |-----------|------|
 | Next.js | App Router |
 | React | 19 |
-| TypeScript | — |
+| TypeScript | 6 |
 
 ---
 
@@ -42,13 +42,15 @@ Custom i18n implementation supporting **Korean** and **English**.
 
 Artist-based dynamic routing using Next.js App Router. Each artist has its own branded landing page with the artist's colors applied dynamically. Routes cover the landing page, quiz flow, and result display.
 
-The structure follows an artist-segment pattern (e.g. `/shinee`, `/fx`), so adding a new artist is primarily a matter of swapping artist-scoped data, mappings, and theme — not rewriting flow code.
+Shared route components consume artist configuration for themes, navigation, and metadata. Public visibility is separate from backend availability: prepared configurations do not become accessible or indexable until explicitly made public. The landing page loads availability on the server; unknown or non-public artist routes return 404.
 
 ---
 
 ## Result Experience
 
-The result page shows the matched song together with a small set of close-match recommendations bundled in the same response. When the quiz can't pin a single song — no-match or all-questions-exhausted paths — the same component renders the closest songs instead, so users never hit a dead end.
+Matched results show the song and related recommendations. No-match and exhausted-question responses also include suggestions; an exhausted quiz lets the user reopen the last question or continue to a no-match result.
+
+Shared results load on the client through the same-origin API route after persisted language state is hydrated. Language query values are validated and malformed legacy links are normalized at the boundary. Results remain available after quiz state expires, although expired sessions no longer provide answer history.
 
 ---
 
@@ -61,9 +63,19 @@ The result page shows the matched song together with a small set of close-match 
 
 ---
 
+## Request Reliability
+
+The browser API client retries eligible reads for transient failures with bounded delays. Mutations do not retry by default. Browser and Worker fetch wrappers abort timed-out requests and clean up timers and cancellation listeners. This complements backend conflict detection and idempotent result creation.
+
+## Responsive UI & Accessibility
+
+Shared artist screens use responsive layouts, keyboard controls, and ARIA labels. Focused Zustand subscriptions reduce unrelated renders, while explicit loading and error states cover result loading and session recovery.
+
+---
+
 ## Testing & Quality
 
-Jest + React Testing Library for unit tests across hooks, components, and the API client. Manual coverage targets the full quiz flow, accessibility, and cross-browser behavior.
+Jest + React Testing Library for unit tests across hooks, components, and the API client. CI enforces coverage thresholds alongside lint, type checking, and build checks. Manual verification targets the full quiz flow, accessibility, and cross-browser behavior.
 
 ---
 
@@ -77,5 +89,6 @@ Jest + React Testing Library for unit tests across hooks, components, and the AP
 ## Key Features
 
 - **Sharing**: Copy link or share to X/Twitter after getting a result. Results remain accessible even after session expiry via a persistent fallback mechanism
-- **Performance**: INP and CLS optimized for Core Web Vitals
-- **Security**: API secret kept server-side (Cloudflare Worker environment), input validation on all user-submitted values, strict CSP / HSTS / Permissions-Policy response headers
+- **Performance work**: Reduced client boundaries and focused store subscriptions
+- **Operational visibility**: Backend request outcome and latency events use operation names instead of raw session URLs; sanitized CSP reports help diagnose policy violations
+- **Security**: API secret kept server-side (Cloudflare Worker environment), boundary validation for external input, strict CSP / HSTS / Permissions-Policy response headers

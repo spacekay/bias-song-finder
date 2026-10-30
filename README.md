@@ -6,7 +6,9 @@
 
 **Live**: https://biassongfinder.com
 
-Currently supports **SHINee** and **f(x)**. More artists coming soon.
+Public artist configuration includes **SHINee** and **f(x)**; availability is loaded from the backend.
+
+This repository documents the architecture and engineering decisions of the application. The implementation is maintained in separate repositories. Documentation was reviewed against local implementation snapshots on **2026-10-30**; see the [source baseline](docs/engineering-decisions.md#source-baseline).
 
 ---
 
@@ -22,11 +24,11 @@ The backend filters candidates based on answers, selects the next most-different
 
 | Layer | Technology |
 |-------|-----------|
-| **Backend** | Kotlin 1.9 / Spring Boot 3.4 / Java 21 |
+| **Backend** | Kotlin 2.4 / Spring Boot 4.1 / Java 21 |
 | **Database** | PostgreSQL 17 (schema-per-tenant multi-tenancy) |
 | **Cache / Session** | Redis (Upstash) |
 | **Backend Deploy** | fly.io (dev + prod) |
-| **Frontend** | Next.js 16 (App Router) / TypeScript / React 19 |
+| **Frontend** | Next.js 16 (App Router) / TypeScript 6 / React 19 |
 | **UI** | Tailwind CSS v4 / shadcn/ui / Framer Motion |
 | **State** | Zustand |
 | **i18n** | Custom (Korean / English) |
@@ -62,16 +64,19 @@ graph TD
 
 ### Key Design Points
 
-- **Hexagonal Architecture**: Each module cleanly separates the HTTP layer from business logic
-- **Multi-Tenancy**: Each artist group is fully isolated at the database level with multi-layer tenant resolution
+- **Module boundaries**: HTTP adapters, domain services, and infrastructure have distinct responsibilities; question selection, answer processing, and result assembly are separated
+- **Multi-Tenancy**: Artist catalogs use separate PostgreSQL schemas with multi-layer tenant resolution
 - **Session-based game flow**: No login required. A lightweight session mechanism tracks quiz state without user accounts
 - **Similarity-based fallback**: When the quiz can't pin a single song, the backend recommends the closest matches via a weighted similarity engine
+- **Recoverable quiz flow**: When questions run out, users can reopen the last question and choose a different answer
+- **Consistent state changes**: Versioned Redis updates reject conflicting answers, while database locks and a uniqueness constraint prevent duplicate active results
 - **Edge deployment**: Frontend runs on Cloudflare Workers for global low-latency delivery
 
 ---
 
 ## Documentation
 
+- [Engineering Decisions](docs/engineering-decisions.md) — Concurrency, recovery, serialization compatibility, and request boundaries
 - [Architecture](docs/architecture.md) — System design, module structure, multi-tenancy
 - [Backend](docs/backend.md) — Backend tech stack details
 - [Frontend](docs/frontend.md) — Frontend tech stack details
